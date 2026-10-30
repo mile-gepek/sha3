@@ -87,10 +87,6 @@ impl<const C: usize> Keccak<C> {
         }
     }
 
-    fn capacity() -> usize {
-        C
-    }
-
     /// The "θ step" of the permutation functions.
     ///
     /// This step can be found in the "Pseudo-code description of the permutations" section
