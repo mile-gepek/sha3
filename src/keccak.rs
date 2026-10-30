@@ -1,3 +1,4 @@
+/// Type alias for the Keccak sponge.
 type KeccakArray = [[u64; 5]; 5];
 
 /// Largest rate any capacity allows, i.e. the size of the absorb buffer.
