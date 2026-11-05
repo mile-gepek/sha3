@@ -1,22 +1,10 @@
-use std::io::Read;
-
 use crate::keccak::Squeeze;
 
 /// pad10*1 domain suffix for SHAKE (FIPS 202 §6.2): 0b1111 || 1.
 const SHAKE_PAD: u8 = 0x1f;
 
-/// Every squeeze is a successful read: an XOF stream never ends.
-impl<const CAP: usize> Read for Squeeze<CAP> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        Squeeze::squeeze(self, buf);
-        Ok(buf.len())
-    }
-}
-
-pub trait XofRead: Read {
-    fn read(&mut self, buffer: &mut [u8]) {
-        <Self as Read>::read(self, buffer).expect("Keccak read should not fail");
-    }
+pub trait XofRead {
+    fn read(&mut self, buffer: &mut [u8]);
 
     /// Fills `n` fresh bytes of the output stream.
     fn read_boxed(&mut self, n: usize) -> Box<[u8]> {
@@ -26,7 +14,11 @@ pub trait XofRead: Read {
     }
 }
 
-impl<const CAP: usize> XofRead for Squeeze<CAP> {}
+impl<const CAP: usize> XofRead for Squeeze<CAP> {
+    fn read(&mut self, buffer: &mut [u8]) {
+        self.squeeze(buffer);
+    }
+}
 
 pub mod inner {
     use crate::keccak::{Keccak, Squeeze, Update};
