@@ -25,12 +25,12 @@ impl Algorithm {
             Algorithm::Sha3_384 => Sha3_384::digest(message).to_vec(),
             Algorithm::Sha3_512 => Sha3_512::digest(message).to_vec(),
             Algorithm::Shake128 => {
-                let mut hasher = Shake128::new();
+                let mut hasher = Shake128::default();
                 hasher.update(message);
                 hasher.squeeze().read_boxed(output_len).to_vec()
             }
             Algorithm::Shake256 => {
-                let mut hasher = Shake256::new();
+                let mut hasher = Shake256::default();
                 hasher.update(message);
                 hasher.squeeze().read_boxed(output_len).to_vec()
             }

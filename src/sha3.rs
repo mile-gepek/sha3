@@ -24,13 +24,6 @@ pub mod inner {
     #[derive(Default)]
     pub struct Sha3<const OUT: usize, const CAP: usize>(Keccak<CAP>);
 
-    impl<const OUT: usize, const CAP: usize> Sha3<OUT, CAP> {
-        pub fn new() -> Self {
-            let keccak = Keccak::default();
-            Self(keccak)
-        }
-    }
-
     impl<const OUT: usize, const CAP: usize> Update for Sha3<OUT, CAP> {
         fn update(&mut self, data: &[u8]) {
             self.0.update(data);

@@ -36,11 +36,6 @@ pub mod inner {
     pub struct Shake<const CAP: usize>(Keccak<CAP>);
 
     impl<const CAP: usize> Shake<CAP> {
-        pub fn new() -> Self {
-            let keccak = Keccak::default();
-            Self(keccak)
-        }
-
         pub fn update(&mut self, data: &[u8]) {
             self.0.update(data)
         }
@@ -70,7 +65,7 @@ mod tests {
     #[test]
     fn test_shake128_on_empty_string() {
         let expected = hex!("7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26");
-        let mut hasher = Shake128::new();
+        let mut hasher = Shake128::default();
         hasher.update(b"");
         let hash = hasher.squeeze().read_boxed(32);
         assert_eq!(*hash, expected);
@@ -81,7 +76,7 @@ mod tests {
         let expected = hex!(
             "46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762fd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be"
         );
-        let mut hasher = Shake256::new();
+        let mut hasher = Shake256::default();
         hasher.update(b"");
         let hash = hasher.squeeze().read_boxed(64);
         assert_eq!(*hash, expected);
