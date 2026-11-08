@@ -73,9 +73,21 @@ mod tests {
         let hash = hasher.squeeze().read_boxed(64);
         assert_eq!(*hash, expected);
     }
+    #[test]
+    fn test_shake_128_double_read() {
+        let hasher = Shake128::default();
+        let mut reader = hasher.squeeze();
+        let mut two_reads = reader.read_boxed(32).to_vec();
+        two_reads.extend(reader.read_boxed(32).into_iter());
+
+        let hasher = Shake128::default();
+        let single_read = hasher.squeeze().read_boxed(64);
+
+        assert_eq!(two_reads, single_read.to_vec());
+    }
 
     #[test]
-    fn test_shake_double_read() {
+    fn test_shake_256_double_read() {
         // 2 sequential reads should be the same as a single bigger read
         let hasher = Shake256::default();
         let mut reader = hasher.squeeze();
@@ -83,16 +95,6 @@ mod tests {
         two_reads.extend(reader.read_boxed(32).into_iter());
 
         let hasher = Shake256::default();
-        let single_read = hasher.squeeze().read_boxed(64);
-
-        assert_eq!(two_reads, single_read.to_vec());
-
-        let hasher = Shake128::default();
-        let mut reader = hasher.squeeze();
-        let mut two_reads = reader.read_boxed(32).to_vec();
-        two_reads.extend(reader.read_boxed(32).into_iter());
-
-        let hasher = Shake128::default();
         let single_read = hasher.squeeze().read_boxed(64);
 
         assert_eq!(two_reads, single_read.to_vec());
