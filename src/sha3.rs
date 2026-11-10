@@ -138,6 +138,9 @@ mod tests {
 
     #[test]
     fn test_dyn_dygest_output_len_with_different_output_type() {
+        // DynDigest::output_len should return the number of bytes the hasher would output,
+        // not the size of the type the hasher returns
+
         #[derive(Default)]
         struct BadHasher;
         impl Update for BadHasher {
