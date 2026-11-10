@@ -118,7 +118,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dyn_digest_length() {
+    fn test_dyn_digest_output() {
         let sha3_224 = Sha3_224::default();
         let sha3_256 = Sha3_256::default();
         let mut hashers: Vec<Box<dyn DynDigest>> = vec![Box::new(sha3_224), Box::new(sha3_256)];
