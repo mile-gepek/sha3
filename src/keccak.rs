@@ -71,8 +71,8 @@ impl<const C: usize> Keccak<C> {
     }
 
     fn xor_block(sponge: &mut KeccakArray, block: &[u8]) {
-        for (i, lane_bytes) in block.chunks_exact(8).enumerate() {
-            sponge[i % 5][i / 5] ^= u64::from_le_bytes(lane_bytes.try_into().unwrap());
+        for (i, lane_bytes) in block.as_chunks::<8>().0.iter().enumerate() {
+            sponge[i % 5][i / 5] ^= u64::from_le_bytes(*lane_bytes);
         }
     }
 
@@ -95,13 +95,13 @@ impl<const C: usize> Keccak<C> {
     /// of the [keccak spec](https://keccak.team/keccak_specs_summary.html).
     fn theta(mut array: KeccakArray) -> KeccakArray {
         let mut columns = [0; 5];
-        for x in 0..5 {
-            columns[x] = array[x][0] ^ array[x][1] ^ array[x][2] ^ array[x][3] ^ array[x][4];
+        for (x, plane) in array.iter().enumerate() {
+            columns[x] = plane[0] ^ plane[1] ^ plane[2] ^ plane[3] ^ plane[4];
         }
-        for x in 0..5 {
+        for (x, plane) in array.iter_mut().enumerate() {
             let neighbor_column_parity = columns[(x + 4) % 5] ^ columns[(x + 1) % 5].rotate_left(1);
-            for y in 0..5 {
-                array[x][y] ^= neighbor_column_parity;
+            for lane in plane.iter_mut() {
+                *lane ^= neighbor_column_parity;
             }
         }
         array
@@ -123,10 +123,10 @@ impl<const C: usize> Keccak<C> {
             [28, 55, 25, 21, 56],
             [27, 20, 39, 8, 14],
         ];
-        for x in 0..5 {
-            for y in 0..5 {
+        for (x, plane) in array.iter_mut().enumerate() {
+            for (y, lane) in plane.iter_mut().enumerate() {
                 let rotation_constant = ROTATION_CONSTANTS[x][y];
-                array[x][y] = array[x][y].rotate_left(rotation_constant);
+                *lane = lane.rotate_left(rotation_constant);
             }
         }
         array
@@ -138,11 +138,11 @@ impl<const C: usize> Keccak<C> {
     /// of the [keccak spec](https://keccak.team/keccak_specs_summary.html).
     fn pi(mut array: KeccakArray) -> KeccakArray {
         let old = array;
-        for x in 0..5 {
-            for y in 0..5 {
+        for (x, plane) in old.iter().enumerate() {
+            for (y, lane) in plane.iter().enumerate() {
                 let new_x = y;
                 let new_y = (2 * x + 3 * y) % 5;
-                array[new_x][new_y] = old[x][y];
+                array[new_x][new_y] = *lane;
             }
         }
         array
@@ -154,14 +154,14 @@ impl<const C: usize> Keccak<C> {
     /// of the [keccak spec](https://keccak.team/keccak_specs_summary.html).
     fn chi(array: KeccakArray) -> KeccakArray {
         let mut new_array = array;
-        for x in 0..5 {
-            for y in 0..5 {
+        for (x, plane) in new_array.iter_mut().enumerate() {
+            for (y, lane) in plane.iter_mut().enumerate() {
                 let left_x = (x + 1) % 5;
                 let left = !array[left_x][y];
 
                 let right_x = (x + 2) % 5;
                 let right = array[right_x][y];
-                new_array[x][y] ^= left & right;
+                *lane ^= left & right;
             }
         }
         new_array
