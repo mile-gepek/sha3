@@ -7,6 +7,8 @@ pub trait Digest: Default + Update {
     /// Fixed output type, e.g. [u8; 32]
     type Output: AsRef<[u8]> + AsMut<[u8]>;
 
+    const OUTPUT_LEN: usize;
+
     fn finalize(self) -> Self::Output;
 
     // Provided convenience method
@@ -33,7 +35,7 @@ pub trait DynDigest: Update {
 
 impl<D: Digest> DynDigest for D {
     fn output_len(&self) -> usize {
-        size_of::<D::Output>()
+        D::OUTPUT_LEN
     }
 
     // Legally distinct name. (Joke, avoiding name collisions since DynDigest is implemented for every Digest type)
@@ -58,6 +60,7 @@ mod inner {
 
     impl<const OUT: usize, const CAP: usize> Digest for Sha3<OUT, CAP> {
         type Output = [u8; OUT];
+        const OUTPUT_LEN: usize = OUT;
 
         fn finalize(self) -> Self::Output {
             let mut output = [0; OUT];
@@ -77,7 +80,10 @@ pub type Sha3_512 = inner::Sha3<64, 128>;
 mod tests {
     use hex_literal::hex;
 
-    use crate::sha3::{Digest, DynDigest, Sha3_224, Sha3_256, Sha3_384, Sha3_512};
+    use crate::{
+        keccak::Update,
+        sha3::{Digest, DynDigest, Sha3_224, Sha3_256, Sha3_384, Sha3_512},
+    };
 
     #[test]
     fn test_sha3_224_on_empty_string() {
@@ -123,5 +129,26 @@ mod tests {
             let digest = hasher.digest_boxed();
             assert_eq!(digest.len(), output_size);
         }
+    }
+
+    #[test]
+    fn test_dyn_dygest_output_len_with_different_output_type() {
+        #[derive(Default)]
+        struct BadHasher;
+        impl Update for BadHasher {
+            fn update(&mut self, _data: &[u8]) {}
+        }
+
+        impl Digest for BadHasher {
+            type Output = Vec<u8>;
+            const OUTPUT_LEN: usize = 100_000;
+
+            fn finalize(self) -> Self::Output {
+                // DynDigest::output_len should return 100,000
+                vec![42; Self::OUTPUT_LEN]
+            }
+        }
+
+        assert_eq!(BadHasher.output_len(), 100_000)
     }
 }
