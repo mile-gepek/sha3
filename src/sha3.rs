@@ -163,4 +163,23 @@ mod tests {
         ));
         assert_eq!(sha3_256_digest, sha3_256_expected);
     }
+
+    #[test]
+    fn test_finalize_into_subslice_of_bigger_array() {
+        let sha3_256 = Box::new(Sha3_256::default());
+        let mut buffer = [0; 50];
+        sha3_256.finalize_into(&mut buffer[0..32]);
+        let sha3_256_expected =
+            hex!("a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a");
+        assert_eq!(buffer[0..32], sha3_256_expected);
+        assert_eq!(buffer[32..], [0; 18]);
+    }
+
+    #[test]
+    #[should_panic = "Output buffer must be exactly 32 bytes long"]
+    fn test_finalize_into_panics_with_incorrect_buffer_length() {
+        let sha3_256 = Box::new(Sha3_256::default());
+        let mut wrong_length_buffer = [0; 50];
+        sha3_256.finalize_into(&mut wrong_length_buffer)
+    }
 }
