@@ -70,7 +70,7 @@ impl<D: Digest> DynDigest for D {
         assert_eq!(
             out.len(),
             D::Output::LEN,
-            "Output buffer must be at least {} bytes",
+            "Output buffer must be exactly {} bytes long",
             D::Output::LEN
         );
         out.copy_from_slice(digest.as_ref());
