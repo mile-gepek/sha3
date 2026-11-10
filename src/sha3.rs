@@ -17,6 +17,32 @@ pub trait Digest: Default + Update {
     }
 }
 
+pub trait DynDigest: Update {
+    // The output size of this hasher in bytes.
+    fn output_len(&self) -> usize;
+
+    fn finalize_into(self: Box<Self>, out: &mut [u8]);
+
+    // Provided convenience method
+    fn digest_boxed(self: Box<Self>) -> Box<[u8]> {
+        let mut buffer = vec![0; self.output_len()];
+        self.finalize_into(&mut buffer);
+        buffer.into_boxed_slice()
+    }
+}
+
+impl<D: Digest> DynDigest for D {
+    fn output_len(&self) -> usize {
+        size_of::<D::Output>()
+    }
+
+    // Legally distinct name. (Joke, avoiding name collisions since DynDigest is implemented for every Digest type)
+    fn finalize_into(self: Box<Self>, out: &mut [u8]) {
+        let digest = self.finalize();
+        out.copy_from_slice(digest.as_ref());
+    }
+}
+
 mod inner {
     use crate::keccak::{Keccak, Update};
     use crate::sha3::{Digest, SHA3_PAD};
@@ -51,7 +77,7 @@ pub type Sha3_512 = inner::Sha3<64, 128>;
 mod tests {
     use hex_literal::hex;
 
-    use crate::sha3::{Digest, Sha3_224, Sha3_256, Sha3_384, Sha3_512};
+    use crate::sha3::{Digest, DynDigest, Sha3_224, Sha3_256, Sha3_384, Sha3_512};
 
     #[test]
     fn test_sha3_224_on_empty_string() {
@@ -83,5 +109,19 @@ mod tests {
         );
         let digest = Sha3_512::digest("".as_bytes());
         assert_eq!(digest, expected);
+    }
+
+    #[test]
+    fn test_dyn_digest_length() {
+        let sha3_224 = Sha3_224::default();
+        let sha3_256 = Sha3_256::default();
+
+        let hashers: Vec<Box<dyn DynDigest>> = vec![Box::new(sha3_224), Box::new(sha3_256)];
+
+        for hasher in hashers {
+            let output_size = hasher.output_len();
+            let digest = hasher.digest_boxed();
+            assert_eq!(digest.len(), output_size);
+        }
     }
 }
