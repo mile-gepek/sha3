@@ -21,7 +21,7 @@ mod inner {
     use crate::keccak::{Keccak, Update};
     use crate::sha3::{Digest, SHA3_PAD};
 
-    #[derive(Default)]
+    #[derive(Copy, Clone, Default)]
     pub struct Sha3<const OUT: usize, const CAP: usize>(Keccak<CAP>);
 
     impl<const OUT: usize, const CAP: usize> Update for Sha3<OUT, CAP> {

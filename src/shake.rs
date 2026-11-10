@@ -24,7 +24,7 @@ mod inner {
     use crate::keccak::{Keccak, Squeeze, Update};
     use crate::shake::SHAKE_PAD;
 
-    #[derive(Default)]
+    #[derive(Copy, Clone, Default)]
     pub struct Shake<const CAP: usize>(Keccak<CAP>);
 
     impl<const CAP: usize> Shake<CAP> {

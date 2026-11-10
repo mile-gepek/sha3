@@ -5,6 +5,7 @@ type KeccakArray = [[u64; 5]; 5];
 const MAX_RATE: usize = 200;
 
 /// Generic keccak implementation with capacity CAP and output size CAP / 2 (for the digest variants).
+#[derive(Copy, Clone)]
 pub(crate) struct Keccak<const CAP: usize> {
     sponge: KeccakArray,
     /// The current block being absorbed: `buffer_len` message bytes followed by zeros.
