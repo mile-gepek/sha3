@@ -20,7 +20,7 @@ impl<const CAP: usize> XofRead for Squeeze<CAP> {
     }
 }
 
-pub mod inner {
+mod inner {
     use crate::keccak::{Keccak, Squeeze, Update};
     use crate::shake::SHAKE_PAD;
 

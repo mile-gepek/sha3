@@ -17,7 +17,7 @@ pub trait Digest: Default + Update {
     }
 }
 
-pub mod inner {
+mod inner {
     use crate::keccak::{Keccak, Update};
     use crate::sha3::{Digest, SHA3_PAD};
 
