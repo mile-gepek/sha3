@@ -121,14 +121,19 @@ mod tests {
     fn test_dyn_digest_length() {
         let sha3_224 = Sha3_224::default();
         let sha3_256 = Sha3_256::default();
+        let mut hashers: Vec<Box<dyn DynDigest>> = vec![Box::new(sha3_224), Box::new(sha3_256)];
 
-        let hashers: Vec<Box<dyn DynDigest>> = vec![Box::new(sha3_224), Box::new(sha3_256)];
+        let sha3_224_digest = hashers.swap_remove(0).digest_boxed();
+        let sha3_224_expected: Box<[_]> = Box::new(hex!(
+            "6b4e03423667dbb73b6e15454f0eb1abd4597f9a1b078e3f5b5a6bc7"
+        ));
+        assert_eq!(sha3_224_digest, sha3_224_expected);
 
-        for hasher in hashers {
-            let output_size = hasher.output_len();
-            let digest = hasher.digest_boxed();
-            assert_eq!(digest.len(), output_size);
-        }
+        let sha3_256_digest = hashers.swap_remove(0).digest_boxed();
+        let sha3_256_expected: Box<[_]> = Box::new(hex!(
+            "a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"
+        ));
+        assert_eq!(sha3_256_digest, sha3_256_expected);
     }
 
     #[test]
