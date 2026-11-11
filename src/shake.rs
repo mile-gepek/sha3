@@ -1,7 +1,11 @@
-use crate::keccak::Squeeze;
+use crate::{Update, keccak::Squeeze};
 
 /// pad10*1 domain suffix for SHAKE (FIPS 202 §6.2): 0b1111 || 1.
 const SHAKE_PAD: u8 = 0x1f;
+
+pub trait Xof: Default + Update {
+    fn digest_xof(message: &[u8], output_len: usize) -> Box<[u8]>;
+}
 
 pub trait XofRead {
     fn read(&mut self, buffer: &mut [u8]);
@@ -21,8 +25,9 @@ impl<const CAP: usize> XofRead for Squeeze<CAP> {
 }
 
 mod inner {
+    use crate::XofRead;
     use crate::keccak::{Keccak, Squeeze, Update};
-    use crate::shake::SHAKE_PAD;
+    use crate::shake::{SHAKE_PAD, Xof};
 
     #[derive(Copy, Clone, Default)]
     pub struct Shake<const CAP: usize>(Keccak<CAP>);
@@ -43,6 +48,14 @@ mod inner {
             self.0.update(data);
         }
     }
+
+    impl<const CAP: usize> Xof for Shake<CAP> {
+        fn digest_xof(data: &[u8], output_len: usize) -> Box<[u8]> {
+            let mut hasher = Self::default();
+            hasher.update(data);
+            hasher.squeeze().read_boxed(output_len)
+        }
+    }
 }
 
 pub type Shake128 = inner::Shake<32>;
@@ -52,7 +65,7 @@ pub type Shake256 = inner::Shake<64>;
 mod tests {
     use hex_literal::hex;
 
-    use crate::shake::{Shake128, Shake256, XofRead};
+    use crate::shake::{Shake128, Shake256, Xof, XofRead};
 
     #[test]
     fn test_shake128_on_empty_string() {
@@ -119,5 +132,19 @@ mod tests {
             "46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762fd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be"
         ));
         assert_eq!(shake256_digest, shake256_expected);
+    }
+
+    #[test]
+    fn test_digest_xof() {
+        let shake128_digest = Shake128::digest_xof(b"", 32);
+        let shake128_expected =
+            hex!("7f9c2ba4e88f827d616045507605853ed73b8093f6efbc88eb1a6eacfa66ef26");
+        assert_eq!(*shake128_digest, shake128_expected);
+
+        let shake256_digest = Shake256::digest_xof(b"", 64);
+        let shake256_expected = hex!(
+            "46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762fd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be"
+        );
+        assert_eq!(*shake256_digest, shake256_expected);
     }
 }
