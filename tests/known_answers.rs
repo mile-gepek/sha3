@@ -1,10 +1,12 @@
 //! Known-answer tests against the NIST byte-oriented SHA-3/SHAKE vectors.
 //!
 //! Each suite loads one derived vector file and checks every case in it.
+//! The Monte Carlo tests run one 100,000 hash chain per file.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use sha3::shake::Xof;
 use sha3::{Digest, Sha3_224, Sha3_256, Sha3_384, Sha3_512, Shake128, Shake256, XofRead};
 
 #[derive(Clone, Copy)]
@@ -105,6 +107,143 @@ fn vector_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/vectors")
 }
 
+/// Number of hashes between each checkpoint in monte carlo tests.
+/// A checkpoint is just an iteration where the result is compared.
+const MONTE_HASHES_PER_CHECKPOINT: usize = 1000;
+
+struct MonteVectors {
+    seed: Vec<u8>,
+    checkpoints: Vec<Vec<u8>>,
+    /// Output length bounds in bytes, only present in the SHAKE files.
+    output_bounds: Option<(usize, usize)>,
+}
+
+/// Utility function to load the .txt file with Monte Carlo test cases.
+///
+/// The seed is 'Seed', and each iteration's checkpoint digest is 'MD'.
+fn load_monte_vectors(path: &Path) -> MonteVectors {
+    let file = fs::read_to_string(path).expect("Opening Monte Carlo vector file should not fail");
+    let mut seed = None;
+    let mut checkpoints = Vec::new();
+    let mut min_output = None;
+    let mut max_output = None;
+
+    for line in file.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        if let Some(value) = line.strip_prefix("Seed = ") {
+            seed = Some(hex_string_to_bytes(unquote(value)));
+        } else if let Some(value) = line.strip_prefix("MD = ") {
+            checkpoints.push(hex_string_to_bytes(unquote(value)));
+        } else if let Some(value) = line.strip_prefix("MinOutputBytes = ") {
+            min_output = Some(value.parse().expect("Output bounds should be numbers"));
+        } else if let Some(value) = line.strip_prefix("MaxOutputBytes = ") {
+            max_output = Some(value.parse().expect("Output bounds should be numbers"));
+        } else if line.starts_with("ITERATION = ") {
+            let iteration: usize = line
+                .strip_prefix("ITERATION = ")
+                .unwrap()
+                .parse()
+                .expect("Iteration values should be numbers");
+            assert_eq!(
+                iteration,
+                checkpoints.len(),
+                "Iterations in {path:?} should be consecutive and start at zero"
+            );
+        } else {
+            panic!("Unexpected line in the Monte Carlo vector file: {line}");
+        }
+    }
+
+    let seed = seed.expect("A Monte Carlo vector file should contain a seed");
+    assert!(
+        !checkpoints.is_empty(),
+        "The Monte Carlo vector file {path:?} contained no checkpoints"
+    );
+    let output_bounds = match (min_output, max_output) {
+        (Some(min), Some(max)) => Some((min, max)),
+        (None, None) => None,
+        _ => panic!("{path:?} should specify both MinOutputBytes and MaxOutputBytes"),
+    };
+    MonteVectors {
+        seed,
+        checkpoints,
+        output_bounds,
+    }
+}
+
+fn sha3_monte<D: Digest>(vectors: &MonteVectors, file: &str) {
+    let mut digest = vectors.seed.clone();
+
+    for (iteration, expected) in vectors.checkpoints.iter().enumerate() {
+        for _ in 0..MONTE_HASHES_PER_CHECKPOINT {
+            let mut hasher = D::default();
+            hasher.update(&digest);
+            digest = hasher.finalize().as_ref().to_vec();
+        }
+        assert_eq!(digest, *expected, "{file}, iteration {iteration}");
+    }
+}
+
+fn shake_monte<X: Xof>(vectors: &MonteVectors, file: &str, min_output: usize, max_output: usize) {
+    let output_range = max_output - min_output + 1;
+    let mut output = vectors.seed.clone();
+    let mut output_len = max_output;
+
+    for (iteration, expected) in vectors.checkpoints.iter().enumerate() {
+        for _ in 0..MONTE_HASHES_PER_CHECKPOINT {
+            let mut message = [0u8; 16];
+            let take = output.len().min(message.len());
+            message[..take].copy_from_slice(&output[..take]);
+
+            output = X::digest_xof(&message, output_len).into_vec();
+
+            let last = output.len() - 2;
+            let rightmost = u16::from_be_bytes([output[last], output[last + 1]]);
+            output_len = min_output + (usize::from(rightmost) % output_range);
+        }
+        assert_eq!(output, *expected, "{file}, iteration {iteration}");
+    }
+}
+
+impl MonteVectors {
+    fn shake_output_bounds(&self) -> (usize, usize) {
+        self.output_bounds
+            .expect("SHAKE Monte Carlo vector files must specify MinOutputBytes and MaxOutputBytes")
+    }
+}
+
+enum MonteAlgorithm {
+    Sha3_224,
+    Sha3_256,
+    Sha3_384,
+    Sha3_512,
+    Shake128,
+    Shake256,
+}
+
+impl MonteAlgorithm {
+    fn run(self, vectors: &MonteVectors, file: &str) {
+        match self {
+            MonteAlgorithm::Sha3_224 => sha3_monte::<Sha3_224>(vectors, file),
+            MonteAlgorithm::Sha3_256 => sha3_monte::<Sha3_256>(vectors, file),
+            MonteAlgorithm::Sha3_384 => sha3_monte::<Sha3_384>(vectors, file),
+            MonteAlgorithm::Sha3_512 => sha3_monte::<Sha3_512>(vectors, file),
+            MonteAlgorithm::Shake128 => {
+                let (min_output, max_output) = vectors.shake_output_bounds();
+                shake_monte::<Shake128>(vectors, file, min_output, max_output)
+            }
+            MonteAlgorithm::Shake256 => {
+                let (min_output, max_output) = vectors.shake_output_bounds();
+                shake_monte::<Shake256>(vectors, file, min_output, max_output)
+            }
+        }
+    }
+}
+
 /// Declares one test per vector file, each checks every case of its file.
 ///
 /// NOTE: This is probably slow since each file contains hundreds (maybe even thousands) of tests.
@@ -145,4 +284,29 @@ known_answer_tests! {
     shake256_short: Shake256, "shake256-short.txt";
     shake256_long: Shake256, "shake256-long.txt";
     shake256_variable_out: Shake256, "shake256-variable-out.txt";
+}
+
+/// Declares one test per Monte Carlo vector file.
+///
+/// NOTE: Every test sequentially computing 100,000 hashes.
+/// This is slow, really slow.
+macro_rules! known_answer_tests_monte {
+    ($($name:ident: $algorithm:ident, $file:literal;)*) => {
+        $(
+            #[test]
+            fn $name() {
+                let vectors = load_monte_vectors(&vector_dir().join($file));
+                MonteAlgorithm::$algorithm.run(&vectors, $file);
+            }
+        )*
+    };
+}
+
+known_answer_tests_monte! {
+    sha3_224_monte: Sha3_224, "sha3-224-monte.txt";
+    sha3_256_monte: Sha3_256, "sha3-256-monte.txt";
+    sha3_384_monte: Sha3_384, "sha3-384-monte.txt";
+    sha3_512_monte: Sha3_512, "sha3-512-monte.txt";
+    shake128_monte: Shake128, "shake128-monte.txt";
+    shake256_monte: Shake256, "shake256-monte.txt";
 }
