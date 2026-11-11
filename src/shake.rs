@@ -6,12 +6,6 @@ const SHAKE_PAD: u8 = 0x1f;
 pub trait XofRead {
     fn read(&mut self, buffer: &mut [u8]);
 
-    fn read_array<const N: usize>(&mut self) -> [u8; N] {
-        let mut buffer = [0; N];
-        self.read(&mut buffer);
-        buffer
-    }
-
     /// Fills `n` fresh bytes of the output stream.
     fn read_boxed(&mut self, n: usize) -> Box<[u8]> {
         let mut buffer = vec![0; n];
@@ -105,16 +99,5 @@ mod tests {
         let single_read = hasher.squeeze().read_boxed(64);
 
         assert_eq!(two_reads, single_read.to_vec());
-    }
-
-    #[test]
-    fn test_xof_exact_read() {
-        let hasher = Shake256::default();
-        let mut reader = hasher.squeeze();
-        let sixty_four_bytes: [u8; 64] = reader.read_array();
-        let expected = hex!(
-            "46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762fd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be"
-        );
-        assert_eq!(sixty_four_bytes, expected);
     }
 }
