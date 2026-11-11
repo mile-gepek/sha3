@@ -109,6 +109,7 @@ pub type Sha3_512 = inner::Sha3<64, 128>;
 
 #[cfg(test)]
 mod tests {
+    use crate::keccak::Update;
     use hex_literal::hex;
 
     use crate::sha3::{Digest, DynDigest, Sha3_224, Sha3_256, Sha3_384, Sha3_512};
@@ -124,6 +125,19 @@ mod tests {
     fn test_sha3_256_on_empty_string() {
         let expected = hex!("a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a");
         let digest = Sha3_256::digest(b"");
+        assert_eq!(digest, expected);
+    }
+
+    #[test]
+    fn test_sha3_256_multiple_update() {
+        let mut hasher = Sha3_256::default();
+        hasher.update(b"a");
+        hasher.update(b"b");
+        hasher.update(b"c");
+        let digest = hasher.finalize();
+        let expected = hex!(
+            "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532"
+        );
         assert_eq!(digest, expected);
     }
 
