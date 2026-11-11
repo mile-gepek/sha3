@@ -114,9 +114,9 @@ mod tests {
         ));
         assert_eq!(shake128_digest, shake128_expected);
 
-        let shake256_digest = hashers.swap_remove(0).read_boxed(32);
+        let shake256_digest = hashers.swap_remove(0).read_boxed(64);
         let shake256_expected: Box<[_]> = Box::new(hex!(
-            "46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762f"
+            "46b9dd2b0ba88d13233b3feb743eeb243fcd52ea62b81b82b50c27646ed5762fd75dc4ddd8c0f200cb05019d67b592f6fc821c49479ab48640292eacb3b7c4be"
         ));
         assert_eq!(shake256_digest, shake256_expected);
     }
