@@ -135,9 +135,7 @@ mod tests {
         hasher.update(b"b");
         hasher.update(b"c");
         let digest = hasher.finalize();
-        let expected = hex!(
-            "3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532"
-        );
+        let expected = hex!("3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532");
         assert_eq!(digest, expected);
     }
 
