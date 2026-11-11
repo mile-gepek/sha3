@@ -6,8 +6,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use sha3::shake::Xof;
-use sha3::{Digest, Sha3_224, Sha3_256, Sha3_384, Sha3_512, Shake128, Shake256, XofRead};
+use sha3::{Digest, Sha3_224, Sha3_256, Sha3_384, Sha3_512, Shake128, Shake256, Xof, XofRead};
 
 #[derive(Clone, Copy)]
 enum Algorithm {
