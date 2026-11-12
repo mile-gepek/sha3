@@ -1,4 +1,7 @@
-use crate::{Update, keccak::Squeeze};
+use crate::{
+    Update,
+    keccak::{Keccak, Squeeze},
+};
 
 /// pad10*1 domain suffix for SHAKE (FIPS 202 §6.2): 0b1111 || 1.
 const SHAKE_PAD: u8 = 0x1f;
@@ -24,42 +27,39 @@ impl<const CAP: usize> XofRead for Squeeze<CAP> {
     }
 }
 
-mod inner {
-    use crate::XofRead;
-    use crate::keccak::{Keccak, Squeeze, Update};
-    use crate::shake::{SHAKE_PAD, Xof};
+/// SHAKE hasher with generic capacity in bytes.
+///
+/// Capacity is 32 for SHAKE128, 64 for SHAKE256.
+#[derive(Copy, Clone, Default)]
+pub struct Shake<const CAP: usize>(Keccak<CAP>);
 
-    #[derive(Copy, Clone, Default)]
-    pub struct Shake<const CAP: usize>(Keccak<CAP>);
-
-    impl<const CAP: usize> Shake<CAP> {
-        pub fn update(&mut self, data: &[u8]) {
-            self.0.update(data)
-        }
-
-        /// Absorbs the final block and returns the output stream.
-        pub fn squeeze(self) -> Squeeze<CAP> {
-            self.0.squeeze(SHAKE_PAD)
-        }
+impl<const CAP: usize> Shake<CAP> {
+    pub fn update(&mut self, data: &[u8]) {
+        self.0.update(data)
     }
 
-    impl<const CAP: usize> Update for Shake<CAP> {
-        fn update(&mut self, data: &[u8]) {
-            self.0.update(data);
-        }
-    }
-
-    impl<const CAP: usize> Xof for Shake<CAP> {
-        fn digest_xof(data: &[u8], output_len: usize) -> Box<[u8]> {
-            let mut hasher = Self::default();
-            hasher.update(data);
-            hasher.squeeze().read_boxed(output_len)
-        }
+    /// Absorbs the final block and returns the output stream.
+    pub fn squeeze(self) -> Squeeze<CAP> {
+        self.0.squeeze(SHAKE_PAD)
     }
 }
 
-pub type Shake128 = inner::Shake<32>;
-pub type Shake256 = inner::Shake<64>;
+impl<const CAP: usize> Update for Shake<CAP> {
+    fn update(&mut self, data: &[u8]) {
+        self.0.update(data);
+    }
+}
+
+impl<const CAP: usize> Xof for Shake<CAP> {
+    fn digest_xof(data: &[u8], output_len: usize) -> Box<[u8]> {
+        let mut hasher = Self::default();
+        hasher.update(data);
+        hasher.squeeze().read_boxed(output_len)
+    }
+}
+
+pub type Shake128 = Shake<32>;
+pub type Shake256 = Shake<64>;
 
 #[cfg(test)]
 mod tests {

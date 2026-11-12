@@ -1,4 +1,4 @@
-use crate::keccak::Update;
+use crate::keccak::{Keccak, Update};
 
 mod sealed {
     pub trait Sealed {}
@@ -77,35 +77,34 @@ impl<D: Digest> DynDigest for D {
     }
 }
 
-mod inner {
-    use crate::keccak::{Keccak, Update};
-    use crate::sha3::{Digest, SHA3_PAD};
+/// SHA3 hasher with generic output size and capacity in bytes.
+///
+/// For fixed output length hashers the output size is **always** half the capacity, but this requires
+/// [generic_const_exprs](https://doc.rust-lang.org/beta/unstable-book/language-features/generic-const-exprs.html) support.
+#[derive(Copy, Clone, Default)]
+pub struct Sha3<const OUT: usize, const CAP: usize>(Keccak<CAP>);
 
-    #[derive(Copy, Clone, Default)]
-    pub struct Sha3<const OUT: usize, const CAP: usize>(Keccak<CAP>);
-
-    impl<const OUT: usize, const CAP: usize> Update for Sha3<OUT, CAP> {
-        fn update(&mut self, data: &[u8]) {
-            self.0.update(data);
-        }
-    }
-
-    impl<const OUT: usize, const CAP: usize> Digest for Sha3<OUT, CAP> {
-        type Output = [u8; OUT];
-
-        fn finalize(self) -> Self::Output {
-            let mut output = [0; OUT];
-            let mut squeeze = self.0.squeeze(SHA3_PAD);
-            squeeze.squeeze(&mut output);
-            output
-        }
+impl<const OUT: usize, const CAP: usize> Update for Sha3<OUT, CAP> {
+    fn update(&mut self, data: &[u8]) {
+        self.0.update(data);
     }
 }
 
-pub type Sha3_224 = inner::Sha3<28, 56>;
-pub type Sha3_256 = inner::Sha3<32, 64>;
-pub type Sha3_384 = inner::Sha3<48, 96>;
-pub type Sha3_512 = inner::Sha3<64, 128>;
+impl<const OUT: usize, const CAP: usize> Digest for Sha3<OUT, CAP> {
+    type Output = [u8; OUT];
+
+    fn finalize(self) -> Self::Output {
+        let mut output = [0; OUT];
+        let mut squeeze = self.0.squeeze(SHA3_PAD);
+        squeeze.squeeze(&mut output);
+        output
+    }
+}
+
+pub type Sha3_224 = Sha3<28, 56>;
+pub type Sha3_256 = Sha3<32, 64>;
+pub type Sha3_384 = Sha3<48, 96>;
+pub type Sha3_512 = Sha3<64, 128>;
 
 #[cfg(test)]
 mod tests {
